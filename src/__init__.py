@@ -1,0 +1,3 @@
+"""
+YOLO Object Detection Project
+"""

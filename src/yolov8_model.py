@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 
-from .config import YOLOV8_CONFIG, TRAIN_CONFIG
-from .utils import setup_logging
+from config import YOLOV8_CONFIG, TRAIN_CONFIG
+from utils_codes import setup_logging
 
 logger = setup_logging(__name__)
 

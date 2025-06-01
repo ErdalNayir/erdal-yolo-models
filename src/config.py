@@ -1,4 +1,5 @@
 from pathlib import Path
+import torch
 
 # Base paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +21,7 @@ TRAIN_CONFIG = {
     "batch_size": 16,
     "epochs": 100,
     "image_size": 640,
-    "device": "cuda",  # or "cpu"
+    "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     "workers": 4,
     "optimizer": "SGD",
     "learning_rate": 0.01,

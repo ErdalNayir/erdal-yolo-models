@@ -6,8 +6,8 @@ import numpy as np
 import sys
 import os
 
-from .config import YOLOV9_CONFIG, TRAIN_CONFIG
-from .utils import setup_logging
+from config import YOLOV9_CONFIG, TRAIN_CONFIG
+from utils_codes import setup_logging
 
 logger = setup_logging(__name__)
 
