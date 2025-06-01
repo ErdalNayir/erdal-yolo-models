@@ -44,8 +44,11 @@ def create_yolo_label(img_info, annotations, label_path):
     img_width = img_info['width']
     img_height = img_info['height']
     
-    # Get annotations for this image
-    img_annotations = [ann for ann in annotations if ann['image_id'] == img_info['id']]
+    # Get annotations for this image and filter out invalid class IDs
+    img_annotations = [
+        ann for ann in annotations 
+        if ann['image_id'] == img_info['id'] and ann['category_id'] < 80
+    ]
     
     # Create label file
     with open(label_path, 'w') as f:
