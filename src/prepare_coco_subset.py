@@ -7,6 +7,7 @@ import requests
 from tqdm import tqdm
 import json
 import random
+import numpy as np
 
 def download_file(url: str, save_path: str):
     """Download a file with progress bar."""
@@ -23,6 +24,38 @@ def download_file(url: str, save_path: str):
         for data in response.iter_content(chunk_size=1024):
             size = file.write(data)
             pbar.update(size)
+
+def convert_coco_bbox_to_yolo(bbox, img_width, img_height):
+    """Convert COCO bbox to YOLO format."""
+    # COCO: [x_min, y_min, width, height]
+    # YOLO: [x_center, y_center, width, height] (normalized)
+    x_min, y_min, width, height = bbox
+    
+    # Convert to YOLO format (normalized)
+    x_center = (x_min + width / 2) / img_width
+    y_center = (y_min + height / 2) / img_height
+    width = width / img_width
+    height = height / img_height
+    
+    return [x_center, y_center, width, height]
+
+def create_yolo_label(img_info, annotations, label_path):
+    """Create YOLO format label file."""
+    img_width = img_info['width']
+    img_height = img_info['height']
+    
+    # Get annotations for this image
+    img_annotations = [ann for ann in annotations if ann['image_id'] == img_info['id']]
+    
+    # Create label file
+    with open(label_path, 'w') as f:
+        for ann in img_annotations:
+            # Convert bbox to YOLO format
+            bbox = convert_coco_bbox_to_yolo(ann['bbox'], img_width, img_height)
+            
+            # Write to file: <class> <x_center> <y_center> <width> <height>
+            label_line = f"{ann['category_id']} {' '.join([f'{x:.6f}' for x in bbox])}\n"
+            f.write(label_line)
 
 def prepare_coco_subset(base_path: str = "data/coco", num_images: int = 500):
     """
@@ -60,18 +93,25 @@ def prepare_coco_subset(base_path: str = "data/coco", num_images: int = 500):
     
     # Create subset directories
     subset_dir = base_path / 'subset'
-    (subset_dir / 'train').mkdir(parents=True, exist_ok=True)
-    (subset_dir / 'val').mkdir(parents=True, exist_ok=True)
-    (subset_dir / 'test').mkdir(parents=True, exist_ok=True)
+    for split in ['train', 'val', 'test']:
+        (subset_dir / split / 'images').mkdir(parents=True, exist_ok=True)
+        (subset_dir / split / 'labels').mkdir(parents=True, exist_ok=True)
     
     # Load COCO annotations
     print("Creating dataset subset...")
     with open(base_path / 'annotations' / 'instances_val2017.json', 'r') as f:
         coco = json.load(f)
     
+    # Get images that have annotations
+    image_ids_with_anns = set(ann['image_id'] for ann in coco['annotations'])
+    valid_images = [img for img in coco['images'] if img['id'] in image_ids_with_anns]
+    
+    if len(valid_images) < num_images:
+        print(f"Warning: Only {len(valid_images)} images with annotations available")
+        num_images = len(valid_images)
+    
     # Randomly select images
-    all_images = coco['images']
-    selected_images = random.sample(all_images, num_images)
+    selected_images = random.sample(valid_images, num_images)
     
     # Split into train/val/test (70/15/15 split)
     train_split = int(0.7 * num_images)
@@ -81,52 +121,31 @@ def prepare_coco_subset(base_path: str = "data/coco", num_images: int = 500):
     val_images = selected_images[train_split:val_split]   # 15% for validation
     test_images = selected_images[val_split:]             # 15% for testing
     
-    # Create image lists and copy images
     splits = {
         'train': train_images,
         'val': val_images,
         'test': test_images
     }
     
-    # Get selected image IDs
-    selected_image_ids = set(img['id'] for img in selected_images)
-    
-    # Filter annotations for selected images
-    selected_annotations = [
-        ann for ann in coco['annotations']
-        if ann['image_id'] in selected_image_ids
-    ]
-    
-    # Create new annotation files
+    # Process each split
     for split_name, images in splits.items():
-        # Copy images
-        print(f"Copying {split_name} images...")
-        image_paths = []
-        for img in tqdm(images):
-            src = base_path / 'val2017' / img['file_name']
-            dst = subset_dir / split_name / img['file_name']
-            shutil.copy2(src, dst)
-            image_paths.append(str(dst))
+        print(f"Processing {split_name} split...")
         
-        # Create image list file
+        # Create image and label lists
         with open(subset_dir / f'{split_name}.txt', 'w') as f:
-            for path in image_paths:
-                f.write(f'{path}\n')
-        
-        # Create annotation file
-        split_annotations = {
-            'info': coco['info'],
-            'licenses': coco['licenses'],
-            'categories': coco['categories'],
-            'images': images,
-            'annotations': [
-                ann for ann in selected_annotations
-                if ann['image_id'] in {img['id'] for img in images}
-            ]
-        }
-        
-        with open(subset_dir / f'instances_{split_name}.json', 'w') as f:
-            json.dump(split_annotations, f)
+            for img in tqdm(images, desc=f"Processing {split_name} images"):
+                # Copy image
+                src = base_path / 'val2017' / img['file_name']
+                dst = subset_dir / split_name / 'images' / img['file_name']
+                shutil.copy2(src, dst)
+                
+                # Create YOLO format label
+                label_file = Path(dst).stem + '.txt'
+                label_path = subset_dir / split_name / 'labels' / label_file
+                create_yolo_label(img, coco['annotations'], label_path)
+                
+                # Add to image list
+                f.write(f'{str(dst)}\n')
     
     # Update COCO dataset config for the subset
     coco_yaml = """
@@ -138,7 +157,7 @@ train: train.txt  # train images
 val: val.txt      # val images
 test: test.txt    # test images
 
-# Classes
+# Classes (80 COCO classes)
 nc: 80  # number of classes
 names: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
         'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
@@ -161,6 +180,18 @@ Created subset with {num_images} images:
 - Validation: {len(val_images)} images ({len(val_images)/num_images*100:.1f}%)
 - Testing: {len(test_images)} images ({len(test_images)/num_images*100:.1f}%)
 Dataset config saved to {base_path.parent}/coco.yaml
+
+Directory structure:
+{base_path}/subset/
+├── train/
+│   ├── images/  # Training images
+│   └── labels/  # Training labels (YOLO format)
+├── val/
+│   ├── images/  # Validation images
+│   └── labels/  # Validation labels (YOLO format)
+└── test/
+    ├── images/  # Test images
+    └── labels/  # Test labels (YOLO format)
 """)
 
 if __name__ == "__main__":
