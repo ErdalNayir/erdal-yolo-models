@@ -21,7 +21,7 @@ TRAIN_CONFIG = {
     "batch_size": 16,
     "epochs": 100,
     "image_size": 640,
-    "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    "device": torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
     "workers": 4,
     "optimizer": "SGD",
     "learning_rate": 0.01,
@@ -31,7 +31,7 @@ TRAIN_CONFIG = {
 
 # YOLOv8 specific configurations
 YOLOV8_CONFIG = {
-    "model_type": "yolov8n",  # yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
+    "model_type": "yolov8s",  # yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
     "pretrained": True,
     "conf_thres": 0.25,
     "iou_thres": 0.45,
@@ -39,7 +39,7 @@ YOLOV8_CONFIG = {
 
 # YOLOv9 specific configurations
 YOLOV9_CONFIG = {
-    "model_type": "yolov9-c",  # yolov9-c, yolov9-e
+    "model_type": "yolov9s",  # yolov9-c, yolov9-e
     "pretrained": True,
     "conf_thres": 0.25,
     "iou_thres": 0.45,

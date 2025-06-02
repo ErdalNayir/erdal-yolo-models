@@ -3,8 +3,7 @@ import yaml
 from pathlib import Path
 import time
 from typing import Dict, Any
-import sys
-import os
+
 
 
 from yolov8_model import YOLOv8Detector
@@ -28,9 +27,10 @@ def parse_args():
                        help="Input image size")
     parser.add_argument("--workers", type=int, default=4,
                        help="Number of worker threads")
-    parser.add_argument("--device", type=str, default="cuda",
-                       help="Device to use (cuda or cpu)")
+    parser.add_argument("--device", type=str, default="cuda:0",
+                    help="Device to use (cuda:0, cuda:1, or cpu)")
     return parser.parse_args()
+
 
 def load_data_config(config_path: str) -> Dict[str, Any]:
     """Load and validate data configuration file."""
