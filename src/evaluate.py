@@ -10,7 +10,7 @@ import cv2
 
 from yolov8_model import YOLOv8Detector
 from yolov9_model import YOLOv9Detector
-from utils_folder import setup_logging, visualize_detection, calculate_metrics
+from utils_codes import setup_logging, visualize_detection, calculate_metrics
 
 logger = setup_logging(__name__)
 
@@ -39,14 +39,14 @@ def load_models(weights_dir: str) -> Dict[str, object]:
     # Load YOLOv8
     if (weights_dir / "yolov8").exists():
         models["YOLOv8"] = YOLOv8Detector(
-            model_type="yolov8s",
+            model_type=f"{weights_dir}/yolov8/best.pt",
             pretrained=False
         )
     
     # Load YOLOv9
     if (weights_dir / "yolov9").exists():
         models["YOLOv9"] = YOLOv9Detector(
-            model_type="yolov9s",
+            model_type=f"{weights_dir}/yolov9/best.pt",
             pretrained=False
         )
     
